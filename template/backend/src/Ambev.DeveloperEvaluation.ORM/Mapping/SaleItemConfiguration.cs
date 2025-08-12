@@ -20,9 +20,10 @@ public class SaleItemConfiguration : IEntityTypeConfiguration<SaleItem>
         builder.Property(si => si.Discount).HasColumnType("decimal(18,2)");
         builder.Property(si => si.TotalAmount).HasColumnType("decimal(18,2)");
 
-        // Chave estrangeira para Sale (configurada em SaleConfiguration)
-        // builder.HasOne<Sale>()
-        //     .WithMany(s => s.Items)
-        //     .HasForeignKey("SaleId");
+                // Foreign key to Sale
+        builder.HasOne(si => si.Sale)
+            .WithMany(s => s.Items)
+            .HasForeignKey(si => si.SaleId)
+            .OnDelete(DeleteBehavior.Cascade);
     }
 }

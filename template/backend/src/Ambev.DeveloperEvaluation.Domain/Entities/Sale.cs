@@ -11,7 +11,7 @@ namespace Ambev.DeveloperEvaluation.Domain.Entities
         public decimal TotalAmount { get; private set; }
         public string Branch { get; private set; }
         public bool IsCancelled { get; private set; }
-        public List<SaleItem> Items { get; private set; } = new List<SaleItem>();
+        public List<SaleItem> Items { get; set; } = new List<SaleItem>();
 
         private Sale() { }
 

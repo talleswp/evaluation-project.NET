@@ -4,6 +4,7 @@ using Ambev.DeveloperEvaluation.Common.Security;
 using Ambev.DeveloperEvaluation.Domain.Repositories;
 using Ambev.DeveloperEvaluation.Domain.Specifications;
 using MediatR;
+using Serilog; // Added for logging
 
 namespace Ambev.DeveloperEvaluation.Application.Auth.AuthenticateUser
 {
@@ -27,7 +28,17 @@ namespace Ambev.DeveloperEvaluation.Application.Auth.AuthenticateUser
         {
             var user = await _userRepository.GetByEmailAsync(request.Email, cancellationToken);
             
-            if (user == null || !_passwordHasher.VerifyPassword(request.Password, user.Password))
+            Log.Information($"Attempting login for email: {request.Email}");
+            Log.Information($"Provided password (plain): {request.Password}");
+            Log.Information($"Stored hashed password: {user?.Password ?? "<null>"}"); // Handle null user
+            bool passwordVerified = false;
+            if (user != null)
+            {
+                passwordVerified = _passwordHasher.VerifyPassword(request.Password, user.Password);
+            }
+            Log.Information($"Password verification result: {passwordVerified}");
+
+            if (user == null || !passwordVerified)
             {
                 throw new UnauthorizedAccessException("Invalid credentials");
             }

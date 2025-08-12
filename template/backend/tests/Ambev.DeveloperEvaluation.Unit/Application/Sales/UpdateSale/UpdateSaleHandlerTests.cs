@@ -1,5 +1,3 @@
-
-using NSubstitute.Core.Arguments;
 using Ambev.DeveloperEvaluation.Application.Sales.UpdateSale;
 using Ambev.DeveloperEvaluation.Domain.Entities;
 using Ambev.DeveloperEvaluation.Domain.Repositories;
@@ -8,6 +6,8 @@ using FluentAssertions;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
 using Xunit;
+using MediatR; // Added
+using Ambev.DeveloperEvaluation.Domain.Events; // Added
 
 namespace Ambev.DeveloperEvaluation.Unit.Application.Sales.UpdateSale;
 
@@ -16,6 +16,7 @@ public class UpdateSaleHandlerTests
     private readonly ISaleRepository _saleRepository;
     private readonly IMapper _mapper;
     private readonly ILogger<UpdateSaleHandler> _logger;
+    private readonly IPublisher _publisher; // Added
     private readonly UpdateSaleHandler _handler;
 
     public UpdateSaleHandlerTests()
@@ -23,7 +24,8 @@ public class UpdateSaleHandlerTests
         _saleRepository = Substitute.For<ISaleRepository>();
         _mapper = Substitute.For<IMapper>();
         _logger = Substitute.For<ILogger<UpdateSaleHandler>>();
-        _handler = new UpdateSaleHandler(_saleRepository, _mapper, _logger);
+        _publisher = Substitute.For<IPublisher>(); // Added
+        _handler = new UpdateSaleHandler(_saleRepository, _mapper, _logger, _publisher);
     }
 
     [Fact(DisplayName = "Should update an existing sale successfully")]
@@ -63,7 +65,8 @@ public class UpdateSaleHandlerTests
         existingSale.Items.First(i => i.ProductName == "Product Y").Quantity.Should().Be(2);
         await _saleRepository.Received(1).GetByIdAsync(saleId, Arg.Any<CancellationToken>());
         await _saleRepository.Received(1).UpdateAsync(Arg.Any<Sale>(), Arg.Any<CancellationToken>());
-                                _logger.Received(1).Log(LogLevel.Information, Arg.Any<EventId>(), Arg.Is<IReadOnlyList<KeyValuePair<string, object>>>(l => true), Arg.Any<Exception>(), Arg.Any<Func<IReadOnlyList<KeyValuePair<string, object>>, Exception, string>>());
+        await _publisher.Received(1).Publish(Arg.Any<SaleModifiedEvent>(), Arg.Any<CancellationToken>()); // Added
+        await _publisher.ReceivedWithAnyArgs().Publish(Arg.Any<SaleItemModifiedEvent>(), Arg.Any<CancellationToken>());
     }
 
     [Fact(DisplayName = "Should throw KeyNotFoundException when sale not found")]

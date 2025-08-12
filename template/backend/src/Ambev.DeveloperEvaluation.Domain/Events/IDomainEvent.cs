@@ -1,7 +1,10 @@
 
-namespace Ambev.DeveloperEvaluation.Domain.Events;
+using MediatR;
 
-public interface IDomainEvent
+namespace Ambev.DeveloperEvaluation.Domain.Events
 {
-    DateTime OccurredOn { get; }
+    public interface IDomainEvent : INotification
+    {
+        
+    }
 }

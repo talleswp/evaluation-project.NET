@@ -20,8 +20,8 @@ public class SaleProfile : Profile
     {
         // CreateSale
         CreateMap<CreateSaleRequest, CreateSaleCommand>();
-        CreateMap<CreateSaleResponse, CreateSaleResult>();
-        CreateMap<CreateSaleResult, CreateSaleResponse>();
+        CreateMap<CreateSaleItemRequest, CreateSaleItemCommand>();
+        CreateMap<Ambev.DeveloperEvaluation.Application.Sales.CreateSale.CreateSaleResult, Ambev.DeveloperEvaluation.WebApi.Features.Sales.CreateSale.CreateSaleResponse>();
 
         // GetSale
         CreateMap<GetSaleRequest, GetSaleQuery>();
@@ -30,6 +30,7 @@ public class SaleProfile : Profile
 
         // GetAllSales
         CreateMap<GetAllSalesRequest, GetAllSalesQuery>();
+        CreateMap<Ambev.DeveloperEvaluation.Application.Sales.GetAllSales.GetAllSalesItemResult, Ambev.DeveloperEvaluation.WebApi.Features.Sales.GetAllSales.GetAllSalesItemResponse>();
         CreateMap<GetAllSalesResult, PaginatedList<GetAllSalesItemResponse>>()
             .ConvertUsing((src, dest, context) => new PaginatedList<GetAllSalesItemResponse>(
                 context.Mapper.Map<List<GetAllSalesItemResponse>>(src.Items),

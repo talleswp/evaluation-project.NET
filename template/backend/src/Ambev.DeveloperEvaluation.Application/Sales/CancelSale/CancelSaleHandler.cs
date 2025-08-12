@@ -1,10 +1,11 @@
-
 using MediatR;
 using Ambev.DeveloperEvaluation.Domain.Repositories;
 using FluentValidation;
 using Ambev.DeveloperEvaluation.Domain.Events;
 using Microsoft.Extensions.Logging;
 using Ambev.DeveloperEvaluation.Domain.Validation; 
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace Ambev.DeveloperEvaluation.Application.Sales.CancelSale;
 
@@ -15,12 +16,14 @@ public class CancelSaleHandler : IRequestHandler<CancelSaleCommand, CancelSaleRe
 {
     private readonly ISaleRepository _saleRepository;
     private readonly ILogger<CancelSaleHandler> _logger;
+    private readonly IPublisher _publisher; // Add IPublisher
     private readonly SaleValidator _saleValidator; 
 
-    public CancelSaleHandler(ISaleRepository saleRepository, ILogger<CancelSaleHandler> logger)
+    public CancelSaleHandler(ISaleRepository saleRepository, ILogger<CancelSaleHandler> logger, IPublisher publisher) // Inject IPublisher
     {
         _saleRepository = saleRepository;
         _logger = logger;
+        _publisher = publisher; // Assign IPublisher
         _saleValidator = new SaleValidator(); 
     }
 
@@ -51,9 +54,8 @@ public class CancelSaleHandler : IRequestHandler<CancelSaleCommand, CancelSaleRe
 
         await _saleRepository.UpdateAsync(sale, cancellationToken); 
 
-        var saleCancelledEvent = new SaleCancelledEvent(sale.Id, sale.SaleNumber);
-        _logger.LogInformation("Domain Event: {EventType} - SaleId: {SaleId}, SaleNumber: {SaleNumber}", 
-            nameof(SaleCancelledEvent), saleCancelledEvent.SaleId, saleCancelledEvent.SaleNumber);
+        var saleCancelledEvent = new SaleCancelledEvent(sale.Id, sale.SaleNumber, DateTime.UtcNow); // Add OccurredAt
+        await _publisher.Publish(saleCancelledEvent, cancellationToken); // Publish the event
 
         return new CancelSaleResult { Id = sale.Id, Success = true };
     }

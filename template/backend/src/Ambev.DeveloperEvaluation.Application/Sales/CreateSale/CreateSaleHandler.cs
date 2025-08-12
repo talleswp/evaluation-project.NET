@@ -1,4 +1,3 @@
-
 using MediatR;
 using AutoMapper;
 using Ambev.DeveloperEvaluation.Domain.Repositories;
@@ -7,6 +6,8 @@ using FluentValidation;
 using Ambev.DeveloperEvaluation.Domain.Events;
 using Microsoft.Extensions.Logging;
 using Ambev.DeveloperEvaluation.Domain.Validation; 
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace Ambev.DeveloperEvaluation.Application.Sales.CreateSale;
 
@@ -18,13 +19,15 @@ public class CreateSaleHandler : IRequestHandler<CreateSaleCommand, CreateSaleRe
     private readonly ISaleRepository _saleRepository;
     private readonly IMapper _mapper;
     private readonly ILogger<CreateSaleHandler> _logger;
+    private readonly IPublisher _publisher; // Add IPublisher
     private readonly SaleValidator _saleValidator; 
 
-    public CreateSaleHandler(ISaleRepository saleRepository, IMapper mapper, ILogger<CreateSaleHandler> logger)
+    public CreateSaleHandler(ISaleRepository saleRepository, IMapper mapper, ILogger<CreateSaleHandler> logger, IPublisher publisher) // Inject IPublisher
     {
         _saleRepository = saleRepository;
         _mapper = mapper;
         _logger = logger;
+        _publisher = publisher; // Assign IPublisher
         _saleValidator = new SaleValidator(); 
     }
 
@@ -52,9 +55,11 @@ public class CreateSaleHandler : IRequestHandler<CreateSaleCommand, CreateSaleRe
 
         var createdSale = await _saleRepository.CreateAsync(sale, cancellationToken);
 
-        var saleCreatedEvent = new SaleCreatedEvent(createdSale.Id, createdSale.SaleNumber);
-        _logger.LogInformation("Domain Event: {EventType} - SaleId: {SaleId}, SaleNumber: {SaleNumber}", 
-            nameof(SaleCreatedEvent), saleCreatedEvent.SaleId, saleCreatedEvent.SaleNumber);
+        var saleCreatedEvent = new SaleCreatedEvent(createdSale.Id, createdSale.SaleNumber, DateTime.UtcNow);
+        await _publisher.Publish(saleCreatedEvent, cancellationToken);
+        // The logging will now be handled by SaleCreatedEventHandler
+        // _logger.LogInformation("Domain Event: {EventType} - SaleId: {SaleId}, SaleNumber: {SaleNumber}",
+        //     nameof(SaleCreatedEvent), saleCreatedEvent.SaleId, saleCreatedEvent.SaleNumber);
 
         return _mapper.Map<CreateSaleResult>(createdSale);
     }

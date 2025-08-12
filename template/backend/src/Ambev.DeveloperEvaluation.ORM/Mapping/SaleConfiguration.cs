@@ -22,8 +22,8 @@ public class SaleConfiguration : IEntityTypeConfiguration<Sale>
         builder.Property(s => s.IsCancelled).IsRequired();
 
         builder.HasMany(s => s.Items)
-            .WithOne()
-            .HasForeignKey("SaleId") // Chave estrangeira para SaleItem
+            .WithOne(si => si.Sale)
+            .HasForeignKey(si => si.SaleId) // Chave estrangeira para SaleItem
             .OnDelete(DeleteBehavior.Cascade); // Deleta itens quando a venda é deletada
     }
 }

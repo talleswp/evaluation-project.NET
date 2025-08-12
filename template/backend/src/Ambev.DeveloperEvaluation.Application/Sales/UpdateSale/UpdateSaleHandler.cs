@@ -1,4 +1,3 @@
-
 using MediatR;
 using AutoMapper;
 using Ambev.DeveloperEvaluation.Domain.Repositories;
@@ -7,6 +6,10 @@ using FluentValidation;
 using Ambev.DeveloperEvaluation.Domain.Events;
 using Microsoft.Extensions.Logging;
 using Ambev.DeveloperEvaluation.Domain.Validation; 
+using System;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace Ambev.DeveloperEvaluation.Application.Sales.UpdateSale;
 
@@ -18,13 +21,15 @@ public class UpdateSaleHandler : IRequestHandler<UpdateSaleCommand, UpdateSaleRe
     private readonly ISaleRepository _saleRepository;
     private readonly IMapper _mapper;
     private readonly ILogger<UpdateSaleHandler> _logger;
+    private readonly IPublisher _publisher; // Add IPublisher
     private readonly SaleValidator _saleValidator; 
 
-    public UpdateSaleHandler(ISaleRepository saleRepository, IMapper mapper, ILogger<UpdateSaleHandler> logger)
+    public UpdateSaleHandler(ISaleRepository saleRepository, IMapper mapper, ILogger<UpdateSaleHandler> logger, IPublisher publisher) // Inject IPublisher
     {
         _saleRepository = saleRepository;
         _mapper = mapper;
         _logger = logger;
+        _publisher = publisher; // Assign IPublisher
         _saleValidator = new SaleValidator(); 
     }
 
@@ -60,7 +65,13 @@ public class UpdateSaleHandler : IRequestHandler<UpdateSaleCommand, UpdateSaleRe
         // Remove items not in command
         foreach (var existingItemId in existingItemIds.Except(commandItemIds))
         {
+            var removedItem = sale.Items.FirstOrDefault(i => i.Id == existingItemId);
             sale.RemoveItem(existingItemId);
+            if (removedItem != null)
+            {
+                var itemModifiedEvent = new SaleItemModifiedEvent(sale.Id, removedItem.Id, removedItem.ProductName, removedItem.Quantity, DateTime.UtcNow, "Removed");
+                await _publisher.Publish(itemModifiedEvent, cancellationToken);
+            }
         }
 
         // Add or update items
@@ -69,12 +80,25 @@ public class UpdateSaleHandler : IRequestHandler<UpdateSaleCommand, UpdateSaleRe
             if (itemCommand.Id.HasValue && existingItemIds.Contains(itemCommand.Id.Value))
             {
                 // Update existing item
+                var originalQuantity = sale.Items.FirstOrDefault(i => i.Id == itemCommand.Id.Value)?.Quantity;
                 sale.UpdateItem(itemCommand.Id.Value, itemCommand.Quantity, itemCommand.UnitPrice);
+                var updatedItem = sale.Items.FirstOrDefault(i => i.Id == itemCommand.Id.Value);
+                if (updatedItem != null)
+                {
+                    var itemModifiedEvent = new SaleItemModifiedEvent(sale.Id, updatedItem.Id, updatedItem.ProductName, updatedItem.Quantity, DateTime.UtcNow, "Updated");
+                    await _publisher.Publish(itemModifiedEvent, cancellationToken);
+                }
             }
             else
             {
                 // Add new item
                 sale.AddItem(itemCommand.ProductName, itemCommand.Quantity, itemCommand.UnitPrice);
+                var addedItem = sale.Items.LastOrDefault(); // Assuming it's the last added
+                if (addedItem != null)
+                {
+                    var itemModifiedEvent = new SaleItemModifiedEvent(sale.Id, addedItem.Id, addedItem.ProductName, addedItem.Quantity, DateTime.UtcNow, "Added");
+                    await _publisher.Publish(itemModifiedEvent, cancellationToken);
+                }
             }
         }
 
@@ -86,9 +110,8 @@ public class UpdateSaleHandler : IRequestHandler<UpdateSaleCommand, UpdateSaleRe
 
         var updatedSale = await _saleRepository.UpdateAsync(sale, cancellationToken);
 
-        var saleModifiedEvent = new SaleModifiedEvent(updatedSale.Id);
-        _logger.LogInformation("Domain Event: {EventType} - SaleId: {SaleId}", 
-            nameof(SaleModifiedEvent), saleModifiedEvent.SaleId);
+        var saleModifiedEvent = new SaleModifiedEvent(updatedSale.Id, updatedSale.SaleNumber, DateTime.UtcNow); // Add SaleNumber and OccurredAt
+        await _publisher.Publish(saleModifiedEvent, cancellationToken); // Publish the event
 
         return _mapper.Map<UpdateSaleResult>(updatedSale);
     }

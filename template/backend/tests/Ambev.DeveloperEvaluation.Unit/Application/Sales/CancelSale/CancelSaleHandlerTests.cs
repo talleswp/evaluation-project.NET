@@ -1,4 +1,3 @@
-
 using Ambev.DeveloperEvaluation.Application.Sales.CancelSale;
 using Ambev.DeveloperEvaluation.Domain.Entities;
 using Ambev.DeveloperEvaluation.Domain.Repositories;
@@ -6,6 +5,8 @@ using FluentAssertions;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
 using Xunit;
+using MediatR; // Added
+using Ambev.DeveloperEvaluation.Domain.Events; // Added
 
 namespace Ambev.DeveloperEvaluation.Unit.Application.Sales.CancelSale;
 
@@ -13,13 +14,15 @@ public class CancelSaleHandlerTests
 {
     private readonly ISaleRepository _saleRepository;
     private readonly ILogger<CancelSaleHandler> _logger;
+    private readonly IPublisher _publisher;
     private readonly CancelSaleHandler _handler;
 
     public CancelSaleHandlerTests()
     {
         _saleRepository = Substitute.For<ISaleRepository>();
         _logger = Substitute.For<ILogger<CancelSaleHandler>>();
-        _handler = new CancelSaleHandler(_saleRepository, _logger);
+        _publisher = Substitute.For<IPublisher>();
+        _handler = new CancelSaleHandler(_saleRepository, _logger, _publisher);
     }
 
     [Fact(DisplayName = "Should cancel sale successfully")]
@@ -46,7 +49,7 @@ public class CancelSaleHandlerTests
         sale.IsCancelled.Should().BeTrue();
         await _saleRepository.Received(1).GetByIdAsync(saleId, Arg.Any<CancellationToken>());
         await _saleRepository.Received(1).UpdateAsync(Arg.Any<Sale>(), Arg.Any<CancellationToken>());
-                                                                                                                                                                                        _logger.Received(1).Log(LogLevel.Information, Arg.Any<EventId>(), Arg.Any<object>(), Arg.Any<Exception>(), Arg.Any<Func<object, Exception, string>>());
+        await _publisher.Received(1).Publish(Arg.Any<SaleCancelledEvent>(), Arg.Any<CancellationToken>());
     }
 
     [Fact(DisplayName = "Should throw KeyNotFoundException when sale not found")]

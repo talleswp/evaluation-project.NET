@@ -1,4 +1,3 @@
-
 using Ambev.DeveloperEvaluation.Application.Sales.CreateSale;
 using Ambev.DeveloperEvaluation.Domain.Entities;
 using Ambev.DeveloperEvaluation.Domain.Repositories;
@@ -7,6 +6,8 @@ using FluentAssertions;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
 using Xunit;
+using MediatR; // Added
+using Ambev.DeveloperEvaluation.Domain.Events; // Added
 
 namespace Ambev.DeveloperEvaluation.Unit.Application.Sales.CreateSale;
 
@@ -15,6 +16,7 @@ public class CreateSaleHandlerTests
     private readonly ISaleRepository _saleRepository;
     private readonly IMapper _mapper;
     private readonly ILogger<CreateSaleHandler> _logger;
+    private readonly IPublisher _publisher;
     private readonly CreateSaleHandler _handler;
 
     public CreateSaleHandlerTests()
@@ -22,7 +24,8 @@ public class CreateSaleHandlerTests
         _saleRepository = Substitute.For<ISaleRepository>();
         _mapper = Substitute.For<IMapper>();
         _logger = Substitute.For<ILogger<CreateSaleHandler>>();
-        _handler = new CreateSaleHandler(_saleRepository, _mapper, _logger);
+        _publisher = Substitute.For<IPublisher>(); // Added
+        _handler = new CreateSaleHandler(_saleRepository, _mapper, _logger, _publisher);
     }
 
     [Fact(DisplayName = "Should create a new sale successfully")]
@@ -61,10 +64,10 @@ public class CreateSaleHandlerTests
         response.SaleNumber.Should().Be(sale.SaleNumber);
         response.TotalAmount.Should().Be(sale.TotalAmount);
         await _saleRepository.Received(1).CreateAsync(Arg.Any<Sale>(), Arg.Any<CancellationToken>());
-                        _logger.Received(1).Log(LogLevel.Information, Arg.Any<EventId>(), Arg.Any<object>(), Arg.Any<Exception>(), Arg.Any<Func<object, Exception, string>>());
+        await _publisher.Received(1).Publish(Arg.Any<SaleCreatedEvent>(), Arg.Any<CancellationToken>());
     }
 
-        [Fact(DisplayName = "Should throw ValidationException for invalid command")]
+    [Fact(DisplayName = "Should throw ValidationException for invalid command")]
     public async Task Should_ThrowValidationException_ForInvalidCommand()
     {
         // Given
